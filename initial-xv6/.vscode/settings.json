@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.rmd": "markdown",
+        "fcntl.h": "c",
+        "utsname.h": "c",
+        "ls.h": "c",
+        "unistd.h": "c",
+        "cstdlib": "c",
+        "limits": "c",
+        "spinlock.h": "c",
+        "proc.h": "c"
+    }
+}
