@@ -41,6 +41,8 @@ int main() {
         die("Listen failed", true, server_socket);
     }
 
+    printf("TCP Server is listening on port %d...\n", PORT);
+
     while(1) {
         if ((client_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
             perror("Accept failed");
