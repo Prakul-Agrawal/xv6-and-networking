@@ -44,18 +44,11 @@ void handle_client(int sockfd) {
         
         // Send acknowledgment to the client for the received chunk
         char ack[6];
+        // printf("Seq num: %d\n", seq_num);
+        // printf("Sending ACK%02d\n", seq_num);
+        if (seq_num == 2) continue;
         snprintf(ack, sizeof(ack), "ACK%02d", seq_num);
         sendto(sockfd, ack, sizeof(ack), 0, (struct sockaddr*)&client_addr, client_len);
-        // int flag = 1;
-        // for (int i = 0; i < num_chunks; i++) {
-        //     if (received_flag[i] == 0) {
-        //         flag = 0;
-        //         break;
-        //     }
-        // }
-        // if (flag == 1) {
-        //     break;
-        // }
     }
 
     printf("Received message: ");

@@ -25,12 +25,12 @@ void* ack_thread(void* sockfdptr) {
     
     // Continuously listen for acknowledgments and mark chunks as acknowledged
     while (1) {
-        char buf[4];
+        char buf[6];
         int seq_num;
         
         // Receive acknowledgment (e.g., "ACK3") from the server
         recvfrom(sockfd, buf, sizeof(buf), 0, NULL, NULL);
-        if (sscanf(buf, "ACK%d", &seq_num) == 1) {
+        if (sscanf(buf, "ACK%02d", &seq_num) == 1) {
             ackarr[seq_num] = true;
             printf("Received ACK%d\n", seq_num);
         }
@@ -66,7 +66,7 @@ void* resend_thread(void* sockfdptr) {
                     printf("Curr.tv_sec: %ld\n", curr.tv_sec);
                     printf("tv[i].tv_sec: %ld\n", tv[i].tv_sec);
                     char buffer[CHUNK_SIZE + 8];
-                    snprintf(buffer, sizeof(buffer), "DATA%d|%s", i, bufchonks[i]);
+                    snprintf(buffer, sizeof(buffer), "DATA%02d|%s", i, bufchonks[i]);
                     
                     sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
                     gettimeofday(&tv[i], NULL);
