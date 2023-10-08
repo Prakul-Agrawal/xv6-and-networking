@@ -11,7 +11,7 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8080
 #define CHUNK_SIZE 10
-#define TIMEOUT_SEC 1
+#define TIMEOUT_SEC 0.25
 #define MAX_SEQ_NUM 100
 
 bool ackarr[MAX_SEQ_NUM];
@@ -56,12 +56,15 @@ void* resend_thread(void* sockfdptr) {
         for (int i = 0; i < num_chunks; i++) {
             if (!ackarr[i]) {
                 flag = 1;
-                if (bufchonks[i][0] != '\0' && curr.tv_sec - tv[i].tv_sec > TIMEOUT_SEC) {
-                    char buffer[CHUNK_SIZE + 8];
-                    snprintf(buffer, sizeof(buffer), "DATA%02d|%s", i, bufchonks[i]);                    
-                    sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
-                    gettimeofday(&tv[i], NULL);
-                    printf("Resending chunk %d\n", i);
+                if (bufchonks[i][0] != '\0') {
+                    float time_elapsed = (curr.tv_sec - tv[i].tv_sec) + (curr.tv_usec - tv[i].tv_usec) / 1000000.0;
+                    if (time_elapsed > TIMEOUT_SEC) {
+                        char buffer[CHUNK_SIZE + 8];
+                        snprintf(buffer, sizeof(buffer), "DATA%02d|%s", i, bufchonks[i]);                    
+                        sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
+                        gettimeofday(&tv[i], NULL);
+                        printf("Resending chunk %d\n", i);
+                    }
                 }
             }
         }
