@@ -18,7 +18,8 @@ bool ackarr[MAX_SEQ_NUM];
 struct timeval tv[MAX_SEQ_NUM];
 char bufchonks[MAX_SEQ_NUM][CHUNK_SIZE + 1];
 int num_chunks;
-struct sockaddr_in server_addr;
+struct sockaddr_in server_addr, client_addr;
+socklen_t addr_len = sizeof(client_addr);
 
 void* ack_thread(void* sockfdptr) {
     int sockfd = *((int*)sockfdptr);
@@ -27,7 +28,7 @@ void* ack_thread(void* sockfdptr) {
         char buf[6];
         int seq_num;
         
-        recvfrom(sockfd, buf, sizeof(buf), 0, NULL, NULL);
+        recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&server_addr, &addr_len);
         if (sscanf(buf, "ACK%02d", &seq_num) == 1) {
             ackarr[seq_num] = true;
             printf("Received ACK%d\n", seq_num);
@@ -75,6 +76,49 @@ void* resend_thread(void* sockfdptr) {
             return NULL;
         }
     }
+}
+
+void receive_data(int sockfd) {
+    char num_chunks_str[4];
+    recvfrom(sockfd, num_chunks_str, sizeof(num_chunks_str), 0, (struct sockaddr*)&server_addr, &addr_len);
+    int num_chunks = atoi(num_chunks_str);
+
+    printf("Number of chunks: %d\n", num_chunks);
+
+    char received_chunks[MAX_SEQ_NUM][CHUNK_SIZE + 1];
+    int received_flag[MAX_SEQ_NUM] = {0};
+
+    while (1) {
+
+        char chunk[CHUNK_SIZE + 8];
+        memset(chunk, '\0', sizeof(chunk));
+        int valread = recvfrom(sockfd, chunk, sizeof(chunk), 0, (struct sockaddr*)&server_addr, &addr_len);
+        if (valread < 1) {
+            perror("recvfrom");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+        if (chunk[0] == 'T') break;
+
+        printf("Received chunk %s\n", chunk);
+
+        int seq_num;
+        seq_num = (chunk[4] - '0') * 10 + (chunk[5] - '0');
+        strncpy(received_chunks[seq_num], chunk + 7, CHUNK_SIZE);
+        received_chunks[seq_num][valread - 7] = '\0';
+        received_flag[seq_num] = 1;
+        
+        char ack[6];
+        // if (seq_num == 2) continue; // For testing if retransmission works properly
+        snprintf(ack, sizeof(ack), "ACK%02d", seq_num);
+        sendto(sockfd, ack, sizeof(ack), 0, (struct sockaddr*)&server_addr, addr_len);
+    }
+
+    printf("Received message: ");
+    for (int i = 0; i < num_chunks; i++) {
+        printf("%s", received_chunks[i]);
+    }
+    printf("\n");
 }
 
 int main() {
@@ -125,6 +169,14 @@ int main() {
 
         pthread_join(ack_thread_id, NULL);
         pthread_join(resend_thread_id, NULL);
+
+        receive_data(sockfd);
+
+        printf("Do you want to send another message? (y/n): ");
+        char choice;
+        scanf("%c", &choice);
+        getchar();
+        if (choice == 'n') break;
     }
     
     close(sockfd);
