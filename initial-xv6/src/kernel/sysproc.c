@@ -108,3 +108,32 @@ sys_waitx(void)
     return -1;
   return ret;
 }
+
+uint64
+sys_sigalarm(void)
+{
+  int interval;
+  uint64 addr;
+  argint(0, &interval);
+  argaddr(1, &addr);
+
+  if (interval > 0 && addr >= 0) {
+    myproc()->ticks = interval;
+    myproc()->handler = addr;
+    myproc()->ticks_completed = 0;
+    myproc()->alarm_flag = 1;
+    return 0;
+  }  
+  return -1;  
+}
+
+uint64
+sys_sigreturn(void)
+{
+  memmove(myproc()->trapframe, myproc()->sigalarm_tf, PGSIZE);
+  kfree(myproc()->sigalarm_tf);
+  myproc()->sigalarm_tf = 0;
+  myproc()->ticks_completed = 0;
+  myproc()->ticks = 0;
+  return myproc()->trapframe->a0;
+}

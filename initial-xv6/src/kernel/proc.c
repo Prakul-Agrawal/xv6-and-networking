@@ -152,6 +152,9 @@ found:
   p->rtime = 0;
   p->etime = 0;
   p->ctime = ticks;
+  p->ticks = 0;
+  p->ticks_completed = 0;
+  p->alarm_flag = 0;
   return p;
 }
 

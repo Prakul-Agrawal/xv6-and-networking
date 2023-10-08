@@ -119,6 +119,12 @@ struct proc
   uint rtime;                  // How long the process ran for
   uint ctime;                  // When was the process created
   uint etime;                  // When did the process exited
+
+  uint64 handler;
+  int alarm_flag;
+  int ticks;
+  int ticks_completed;
+  struct trapframe* sigalarm_tf;
 };
 
 extern struct proc proc[NPROC];

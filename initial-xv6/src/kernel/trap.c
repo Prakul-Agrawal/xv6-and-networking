@@ -80,7 +80,15 @@ void usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2)
+  {
+    if (p->alarm_flag && (p->ticks_completed++) == p->ticks)
+    {
+      p->sigalarm_tf = kalloc();
+      memmove(p->sigalarm_tf, p->trapframe, PGSIZE);
+      p->trapframe->epc = p->handler;
+    }
     yield();
+  }
 
   usertrapret();
 }
