@@ -81,13 +81,17 @@ void usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2)
   {
+    printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
+
     if (p->alarm_flag && (p->ticks_completed++) == p->ticks)
     {
       p->sigalarm_tf = kalloc();
       memmove(p->sigalarm_tf, p->trapframe, PGSIZE);
       p->trapframe->epc = p->handler;
     }
+    #ifndef FCFS
     yield();
+    #endif
   }
 
   usertrapret();
@@ -161,7 +165,13 @@ void kerneltrap()
 
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
+  {
+    printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
+
+    #ifndef FCFS
     yield();
+    #endif
+  }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
