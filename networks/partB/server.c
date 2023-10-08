@@ -20,33 +20,31 @@ void handle_client(int sockfd) {
 
     printf("Number of chunks: %d\n", num_chunks);
 
-    char received_chunks[MAX_SEQ_NUM][CHUNK_SIZE + 8];
+    char received_chunks[MAX_SEQ_NUM][CHUNK_SIZE + 1];
     int received_flag[MAX_SEQ_NUM] = {0};
 
     while (1) {
 
         char chunk[CHUNK_SIZE + 8];
-        memset(chunk, 0, sizeof(chunk));
+        memset(chunk, '\0', sizeof(chunk));
         int valread = recvfrom(sockfd, chunk, sizeof(chunk), 0, (struct sockaddr*)&client_addr, &client_len);
         if (valread < 1) {
             perror("recvfrom");
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-        printf("Received chunk %s\n", chunk);
-
         if (chunk[0] == 'T') break;
+
+        printf("Received chunk %s\n", chunk);
 
         int seq_num;
         seq_num = (chunk[4] - '0') * 10 + (chunk[5] - '0');
         strncpy(received_chunks[seq_num], chunk + 7, CHUNK_SIZE);
+        received_chunks[seq_num][valread - 7] = '\0';
         received_flag[seq_num] = 1;
         
-        // Send acknowledgment to the client for the received chunk
         char ack[6];
-        // printf("Seq num: %d\n", seq_num);
-        // printf("Sending ACK%02d\n", seq_num);
-        if (seq_num == 2) continue;
+        if (seq_num == 2) continue; // For testing if retransmission works properly
         snprintf(ack, sizeof(ack), "ACK%02d", seq_num);
         sendto(sockfd, ack, sizeof(ack), 0, (struct sockaddr*)&client_addr, client_len);
     }
@@ -65,7 +63,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
     
-    // struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -82,5 +79,4 @@ int main() {
     }
     
     close(sockfd);
-    return 0;
 }
