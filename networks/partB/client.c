@@ -29,8 +29,6 @@ void* ack_thread(void* sockfdptr) {
         int seq_num;
         
         // Receive acknowledgment (e.g., "ACK3") from the server
-        // recv(sockfd, buf, sizeof(buf), 0);
-        // recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&server_addr, &server_len);
         recvfrom(sockfd, buf, sizeof(buf), 0, NULL, NULL);
         if (sscanf(buf, "ACK%d", &seq_num) == 1) {
             ackarr[seq_num] = true;
@@ -63,13 +61,13 @@ void* resend_thread(void* sockfdptr) {
             if (!ackarr[i]) {
                 flag = 1;
                 if (bufchonks[i][0] != '\0' && curr.tv_sec - tv[i].tv_sec > TIMEOUT_SEC) {
+                    printf("Chunk number %d timed out\n", i);
                     printf("Time: %ld\n", curr.tv_sec - tv[i].tv_sec);
                     printf("Curr.tv_sec: %ld\n", curr.tv_sec);
                     printf("tv[i].tv_sec: %ld\n", tv[i].tv_sec);
                     char buffer[CHUNK_SIZE + 8];
                     snprintf(buffer, sizeof(buffer), "DATA%d|%s", i, bufchonks[i]);
                     
-                    // send(sockfd, buffer, strlen(buffer), 0);
                     sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
                     gettimeofday(&tv[i], NULL);
                     printf("Resending chunk %d\n", i);
@@ -79,6 +77,9 @@ void* resend_thread(void* sockfdptr) {
         
         if (!flag) {
             printf("All chunks acknowledged. Stopping resend\n");
+            // return NULL;
+            // sprintf(buffer, sizeof(buffer), "T");
+            sendto(sockfd, "T", 1, 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
             return NULL;
         }
     }
@@ -97,17 +98,7 @@ int main() {
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
     
-    // if (connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
-    //     perror("connect");
-    //     close(sockfd);
-    //     exit(EXIT_FAILURE);
-    // }
-    
     pthread_t ack_thread_id, resend_thread_id;
-    
-    // Create two threads for acknowledgment and resend
-    // pthread_create(&ack_thread_id, NULL, ack_thread, (void*)&sockfd);
-    // pthread_create(&resend_thread_id, NULL, resend_thread, (void*)&sockfd);
     
     while (1) {
         char input[1024];
@@ -122,6 +113,10 @@ int main() {
         memset(ackarr, false, sizeof(ackarr));
         memset(bufchonks, '\0', sizeof(bufchonks));
         
+        // if (bufchonks[0][0] == '\0') {
+        //     printf("bufchonks[0] is empty\n");
+        // }
+
         // Send the number of chunks to the server
         char num_chunks_str[4];
         snprintf(num_chunks_str, sizeof(num_chunks_str), "%02d", num_chunks);
@@ -131,17 +126,17 @@ int main() {
         // Create two threads for acknowledgment and resend
         pthread_create(&ack_thread_id, NULL, ack_thread, (void*)&sockfd);
         pthread_create(&resend_thread_id, NULL, resend_thread, (void*)&sockfd);
-        sleep(1);
-        
+        // sleep(1);
+
         // Send data in chunks to the server
         for (int i = 0; i < num_chunks; i++) {
             char chunk[CHUNK_SIZE + 8];  // Chunk + sequence number (e.g., "DATA03|...")
             snprintf(chunk, sizeof(chunk), "DATA%02d|%.*s", i, CHUNK_SIZE, input + i * CHUNK_SIZE);
             
             // Copy the chunk into the buffer for possible resending
+            gettimeofday(&tv[i], NULL);
             strncpy(bufchonks[i], chunk + 7, CHUNK_SIZE);
             // tv[i].tv_sec = 0;
-            gettimeofday(&tv[i], NULL);
             
             // send(sockfd, chunk, strlen(chunk), 0);
             sendto(sockfd, chunk, strlen(chunk), 0, (struct sockaddr*)&server_addr, sizeof(server_addr));
@@ -154,9 +149,6 @@ int main() {
         pthread_join(resend_thread_id, NULL);
     }
     
-    // Clean up
-    // pthread_join(ack_thread_id, NULL);
-    // pthread_join(resend_thread_id, NULL);
     close(sockfd);
     
     return 0;

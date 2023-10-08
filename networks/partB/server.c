@@ -23,35 +23,7 @@ void handle_client(int sockfd) {
     char received_chunks[MAX_SEQ_NUM][CHUNK_SIZE + 8];
     int received_flag[MAX_SEQ_NUM] = {0};
 
-    // printf("Reached here\n");
-
     while (1) {
-        // char num_chunks_str[4];
-        
-        // // Receive the number of chunks from the client
-        // // recv(sockfd, num_chunks_str, sizeof(num_chunks_str), 0);
-        // recvfrom(sockfd, num_chunks_str, sizeof(num_chunks_str), 0, (struct sockaddr*)&client_addr, &client_len);
-        // int num_chunks = atoi(num_chunks_str);
-        
-        // char received_chunks[MAX_SEQ_NUM][CHUNK_SIZE + 4];
-        // int received_count = 0;
-        
-        // Receive data chunks from the client
-        // for (int i = 0; i < num_chunks; i++) {
-        //     char chunk[CHUNK_SIZE + 4];
-        //     recv(sockfd, chunk, sizeof(chunk), 0);
-            
-        //     int seq_num;
-        //     if (sscanf(chunk, "DATA%d|%s", &seq_num, received_chunks[seq_num]) == 2) {
-        //         printf("Received chunk %d: %s\n", seq_num, received_chunks[seq_num]);
-        //         received_count++;
-        //     }
-            
-        //     // Send acknowledgment to the client for the received chunk
-        //     char ack[6];
-        //     snprintf(ack, sizeof(ack), "ACK%02d", seq_num);
-        //     send(sockfd, ack, sizeof(ack), 0);
-        // }
 
         char chunk[CHUNK_SIZE + 8];
         memset(chunk, 0, sizeof(chunk));
@@ -61,52 +33,32 @@ void handle_client(int sockfd) {
             close(sockfd);
             exit(EXIT_FAILURE);
         }
-        // printf("Received chunk %s\n", chunk);
-        // printf("valread = %d\n", valread);
+        printf("Received chunk %s\n", chunk);
+
+        if (chunk[0] == 'T') break;
 
         int seq_num;
-        // if (sscanf(chunk, "DATA%d|%.*s", &seq_num, CHUNK_SIZE, received_chunks[seq_num]) == 2) {
-        //     printf("Received chunk %d: %s\n", seq_num, received_chunks[seq_num]);
-        //     received_flag[seq_num] = 1;
-        // }
-        // if (sscanf(chunk, "DATA%d|%s", &seq_num, received_chunks[seq_num]) == 2) {
-        //     printf("Received chunk %d: %s\n", seq_num, received_chunks[seq_num]);
-        //     received_flag[seq_num] = 1;
-        // }
-        // seq_num = the integer value of the 4 and 5 indices of chunk
         seq_num = (chunk[4] - '0') * 10 + (chunk[5] - '0');
-        // the respective received chunk = the string from 7th index to the end of chunk
         strncpy(received_chunks[seq_num], chunk + 7, CHUNK_SIZE);
         received_flag[seq_num] = 1;
-
-        // printf("12345\n");
         
         // Send acknowledgment to the client for the received chunk
         char ack[6];
         snprintf(ack, sizeof(ack), "ACK%02d", seq_num);
         sendto(sockfd, ack, sizeof(ack), 0, (struct sockaddr*)&client_addr, client_len);
-        // Combine received chunks to form the complete message
-        // printf("Received message: ");
-        // for (int i = 0; i < received_count; i++) {
-        //     printf("%s", received_chunks[i]);
+        // int flag = 1;
+        // for (int i = 0; i < num_chunks; i++) {
+        //     if (received_flag[i] == 0) {
+        //         flag = 0;
+        //         break;
+        //     }
         // }
-        // printf("\n");
-        int flag = 1;
-        for (int i = 0; i < num_chunks; i++) {
-            if (received_flag[i] == 0) {
-                flag = 0;
-                break;
-            }
-        }
-        if (flag == 1) {
-            break;
-        }
+        // if (flag == 1) {
+        //     break;
+        // }
     }
 
     printf("Received message: ");
-    // for (int i = 0; i < received_count; i++) {
-    //     printf("%s", received_chunks[i]);
-    // }
     for (int i = 0; i < num_chunks; i++) {
         printf("%s", received_chunks[i]);
     }
@@ -133,17 +85,6 @@ int main() {
     }
     
     while (1) {
-        // struct sockaddr_in client_addr;
-        // socklen_t client_len = sizeof(client_addr);
-        // int newsockfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
-        // if (newsockfd == -1) {
-        //     perror("accept");
-        //     continue;
-        // }
-        
-        // printf("Accepted a new client connection\n");
-        // handle_client(newsockfd);
-        // close(newsockfd);
         handle_client(sockfd);
     }
     
