@@ -125,6 +125,17 @@ struct proc
   int ticks;
   int ticks_completed;
   struct trapframe* sigalarm_tf;
+
+  int entry_time;
+  int available_time;
+  int queued;
+  int current_queue;
 };
 
 extern struct proc proc[NPROC];
+
+struct process_queue{
+  struct proc* procs[NPROC];
+  int end;
+  int time_slice;
+};

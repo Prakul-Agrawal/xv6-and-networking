@@ -109,6 +109,9 @@ void            procdump(void);
 int             getreadcount(void);
 int             sigalarm(int interval, uint64 handler);
 int             sigreturn(void);
+void            enqueue(struct proc*,int);
+void            init_queues();
+void            dequeue(struct proc*,int);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

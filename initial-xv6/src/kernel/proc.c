@@ -6,6 +6,60 @@
 #include "proc.h"
 #include "defs.h"
 
+struct process_queue queues[LEVELCOUNT] = {0};
+
+void init_queues() {
+    for (int i = 0; i < NPROC; i++) {
+      for (int j = 0; j < LEVELCOUNT; j++) {
+        queues[j].procs[i] = (void*)0;
+      }
+    }
+
+    for (int i = 0; i < LEVELCOUNT; i++) {
+      queues[i].end = -1;
+    }
+
+    queues[0].time_slice = 1;
+    queues[1].time_slice = 3;
+    queues[2].time_slice = 9;
+    queues[3].time_slice = 15;
+}
+
+void enqueue(struct proc *process, int queue_num){
+  int flag = 1;
+  for(int i = 0; i <= queues[queue_num].end; i++)
+    if(queues[queue_num].procs[i]->pid == process->pid) flag = 0;
+
+  if (flag) {
+    process->entry_time = ticks;
+    queues[queue_num].procs[++queues[queue_num].end] = process;
+  }
+
+  process->current_queue = queue_num;
+  process->queued = 1;
+}
+
+void dequeue(struct proc* process,int queue_number){
+  int flag = 0;
+  int index;
+  for(int i = 0; i <= queues[queue_number].end; i++)
+    if(queues[queue_number].procs[i]->pid == process->pid) {
+      flag = 1;
+      index = i;
+    }
+
+  if (flag) {
+    queues[queue_number].procs[index]->queued = 0;
+
+    while(index < queues[queue_number].end){
+      queues[queue_number].procs[index] = queues[queue_number].procs[index+1];
+      index++;
+    }
+
+    queues[queue_number].procs[queues[queue_number].end--] = (void*)0;
+  }
+}
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -155,6 +209,10 @@ found:
   p->ticks = 0;
   p->ticks_completed = 0;
   p->alarm_flag = 0;
+  p->entry_time = ticks;
+  p->queued = 0;
+  p->current_queue = 0;
+  // printf("%d %d %d\n", p->pid, p->current_queue, ticks); // for debugging and plotting
   return p;
 }
 
@@ -534,6 +592,46 @@ void scheduler(void)
       release(&min->lock);
     }
 
+    #elif MLFQ
+
+      for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->state == RUNNABLE) {
+          if (p->queued == 0) enqueue(p, p->current_queue);
+          else if (p->current_queue != 0) {
+            if (AGETIMER + p->entry_time <= ticks) {
+              dequeue(p, p->current_queue);
+              // printf("%d %d %d\n", p->pid, p->current_queue, ticks - 1); // for debugging and plotting
+              p->queued = 1;
+              enqueue(p, --p->current_queue);
+              // printf("%d %d %d\n", p->pid, p->current_queue, ticks); // for debugging and plotting
+            }
+          }
+        }
+        release(&p->lock);
+      }
+
+      int flag = 1, level = 0;
+      while (level < LEVELCOUNT) {
+        while(queues[level].end != -1) {
+          acquire(&(queues[level].procs[0])->lock);
+          p = queues[level].procs[0];
+          dequeue(queues[level].procs[0], level);
+          if (p->state == RUNNABLE) {
+            flag = 0;
+            p->available_time = queues[level].time_slice;
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+            c->proc = 0;
+          }
+          release(&p->lock);
+          if (flag == 0) break;
+        }
+        level++;
+        if (flag == 0) break;
+      }
+
     #endif
   }
 }
@@ -658,6 +756,9 @@ int kill(int pid)
     if (p->pid == pid)
     {
       p->killed = 1;
+      #ifdef MLFQ 
+        dequeue(p,p->current_queue);
+      #endif
       if (p->state == SLEEPING)
       {
         // Wake process from sleep().
@@ -814,6 +915,7 @@ void update_time()
     acquire(&p->lock);
     if (p->state == RUNNING)
     {
+      p->available_time--;
       p->rtime++;
     }
     release(&p->lock);

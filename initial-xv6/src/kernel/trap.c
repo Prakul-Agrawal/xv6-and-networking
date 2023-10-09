@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "defs.h"
 
+extern struct process_queue queues[NPROC];
+
 struct spinlock tickslock;
 uint ticks;
 
@@ -81,7 +83,7 @@ void usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2)
   {
-    printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
+    // printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
 
     if (p->alarm_flag && (p->ticks_completed++) == p->ticks)
     {
@@ -89,8 +91,28 @@ void usertrap(void)
       memmove(p->sigalarm_tf, p->trapframe, PGSIZE);
       p->trapframe->epc = p->handler;
     }
-    #ifndef FCFS
-    yield();
+
+    #ifdef MLFQ
+
+      int queue_num = 0;
+      while (queue_num < LEVELCOUNT && queues[queue_num].end == -1)
+        queue_num++;
+
+      if (p->available_time <= 0){
+        int old_q = p->current_queue;
+        p->current_queue = p->current_queue == LEVELCOUNT - 1 ? p->current_queue : p->current_queue + 1;
+        if (old_q != p->current_queue){
+          // printf("%d %d %d\n", p->pid, old_q, ticks - 1); // for debugging and plotting
+          // printf("%d %d %d\n", p->pid, p->current_queue, ticks); // for debugging and plotting
+        }
+      }
+
+      if (queue_num < p->current_queue || p->available_time <= 0) yield();
+
+    #elif RR
+
+      yield();
+
     #endif
   }
 
@@ -166,10 +188,30 @@ void kerneltrap()
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
   {
-    printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
+    // printf("%d %d\n", mycpu()->proc->pid, mycpu()->proc->ctime); // for debugging
 
-    #ifndef FCFS
-    yield();
+    #ifdef MLFQ
+
+      int queue_num = 0;
+      while (queue_num < LEVELCOUNT && queues[queue_num].end == -1)
+        queue_num++;
+
+      struct proc *p = myproc();
+      if (p->available_time <= 0){
+        int old_q = p->current_queue;
+        p->current_queue = p->current_queue == LEVELCOUNT - 1 ? p->current_queue : p->current_queue + 1;
+        if (old_q != p->current_queue){
+          // printf("%d %d %d\n", p->pid, old_q, ticks - 1); // for debugging and plotting
+          // printf("%d %d %d\n", p->pid, p->current_queue, ticks); // for debugging and plotting
+        }
+      }
+
+      if (queue_num < p->current_queue || p->available_time <= 0) yield();
+
+    #elif RR
+
+      yield();
+
     #endif
   }
 
